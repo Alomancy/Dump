@@ -1,0 +1,159 @@
+# Script: webpage_get.py
+# Scrape a webpage for various information and perform basic security and forensics
+# Creator: Dennis Damsgaard
+# Created: 18/11-2013
+ 
+import sys, re, urllib, os, hashlib
+ 
+def wget(url):
+    ''' Try to retrieve a webpage via its url, and return its contents'''
+    print '[*] wget()'
+    # Pass the url into a file
+    url_file = urllib.urlopen(url)
+    # Read the content of the webpage
+    page = url_file.read()
+    # Return the content of the webpage
+    return page
+ 
+def find_hyperlinks(web_page):
+    ''' find and print hyperlinks on a webpage'''
+    print '\n[Type] Hyperlinks '
+    # regex to match on hyperlinks, returning 2 groups, link[1] being the link itself
+    links = re.findall(r'(href=[\'"]?)((http:|https:)[^\'">\?]+)', web_page)
+    # sort and print the links
+    links.sort()
+    print '[+]', str(len(links)), 'HyperLinks Found:'
+    for link in links:
+        print link[1]
+ 
+def find_phoneNum(web_page):
+    '''find and print phone numbers on a webpage'''
+    print "\n[Type: Phone Numbers]"
+    # regex to match on phone numbers
+    phoneNumbers = re.findall('(\+\d\d.\d.\d*\s?\d{3}.\d+)', web_page)
+    # sort and print the phone numbers
+    phoneNumbers.sort()
+    print '[+]', str(len(phoneNumbers)), 'Phone Numbers found:'
+    for found_number in phoneNumbers:
+        print found_number
+ 
+def find_emailAddr(web_page):
+    '''find and print email-addresses on a webpage'''
+    print '\n[Type: Emails]'
+    # regex to match on email addresses
+    emails = re.findall(r'([\d\w\.-_]+@[\w\d\.-_]+\.\w+)', web_page)
+    # sort and print the phone numbers
+    emails.sort()
+    print '[+]', str(len(emails)), 'Emails found:'
+    for found_emails in emails:
+        print found_emails
+ 
+def find_md5Passwd(web_page):
+    '''find, print and crack MD5 hashed passwords on a webpage '''
+    print '\n[Type: MD5 Hashed Passwords]'
+    # regex to match on MD5 Hashes
+    md5Passwd = re.findall(r'([a-fA-F\d]{32})', web_page)
+    # sort and print the MD5 Hashes
+    md5Passwd.sort()
+    print '[+]', str(len(md5Passwd)), 'Passwords found:'
+    for found_passwd in md5Passwd:
+        print '\nFound the Password Hash: ', found_passwd
+        print 'Trying to crack the found password...'
+        crack_found_passwds(found_passwd)
+ 
+def crack_found_passwds(found_passwd):
+    """Checks password hash, against a dictionary of common passwords"""
+    # Create a list of commonly used passwords
+    dic = ['123','1234','12345','123456','1234567','12345678','password','123123', 'qwerty','abc','abcd','abc123','111111','monkey','arsenal',
+           'letmein','trustno1','dragon','baseball','superman','iloveyou','starwars','montypython','cheese','football','password','batman']
+    # Set value of passwd_found to "False"
+    passwd_found = False;
+    # Make sure every possible combination of the hash is searched for
+    dic_upper = [passwd.upper() for passwd in dic]
+    dic_caps = [passwd.capitalize() for passwd in dic]
+    dic_all = dic_upper + dic_caps + dic
+    # Search through each possible password in the dictionary and break if the password is found
+    for passwd in dic_all:
+        passwds = hashlib.md5(passwd)
+        if found_passwd.lower() == passwds.hexdigest():
+            passwd_found = True;
+            break
+    if passwd_found:
+        print 'Password sucessfully recovered as: %s'% (passwd)
+    else:
+        print 'Sorry! The password you are looking for is in another dictionary'
+ 
+ 
+def find_images(web_page):
+    '''find and print .gif .jpg and .bmp files'''
+    print '\n[Type: Image files]'
+    images = re.findall(r'[a-zA-Z0-9\-./_~]+\.(?:bmp|jpg|jpeg|gif|png|bif)', web_page)
+    print '[+]', str(len(images)), 'Image files found:'
+    for found_images in images:
+        print found_images
+ 
+def find_docx(web_page):
+    '''find and print .docx files'''
+    print '\n[Type: .docx files]'
+    docxFiles = re.findall(r'[a-z\-_0-9\/\:\.]*\.docx', web_page)
+    print '[+]', str(len(docxFiles)), '.docx files found:'
+    for found_docx in docxFiles:
+        print found_docx
+ 
+def check_download_folder(file_path):
+    if os.path.exists(file_path):
+        print '\nThe download folder C:\\temp\\coursework exists'
+    else:
+        os.makedirs(file_path)
+        print '\nDownload folder C:\\temp\\coursework sucessfully created'
+ 
+def file_download(web_page, file_path):
+    '''Download image and .docx files from a web-page'''
+    print '\nDownloading files ...'
+    found_files = re.findall(r'[a-zA-Z0-9\-./_~]+\.(?:bmp|jpg|jpeg|gif|png|bif|docx)', web_page)
+    for files in found_files:
+        try:
+            base_url = sys.argv[1]
+            from urlparse import urljoin
+            fileurl = urljoin(base_url, files)
+            os.chdir(file_path)
+            contents = urllib.urlopen(fileurl)
+            output = open(files, 'w')
+            output.write(contents.read())
+            output.close()
+            print 'Successfully downloaded the file:', files
+        except:
+            print 'Could not download the following file:', files
+ 
+    
+ 
+def main():
+    file_path = r'/Users/Alomancy/'
+    # temp testing url argument
+    sys.argv.append('http://www./')
+    # Check args
+    if len(sys.argv) != 2:
+        print '[-] Usage: webpage_getlinks URL'
+        return
+ 
+    # Get the web page
+    web_page = wget(sys.argv[1])
+    # Get the hyperlinks
+    find_hyperlinks(web_page)
+    # Get the Phone Numbers
+    find_phoneNum(web_page)
+    # Get email-addresses
+    find_emailAddr(web_page)
+    # Get MD5 Hashed Passwords
+    find_md5Passwd(web_page)
+    # Get Images files
+    find_images(web_page)
+    # Get .docx files
+    find_docx(web_page)
+    # Check if download path exist
+    check_download_folder(file_path)
+    # Download found image files
+    file_download(web_page, file_path)
+    
+if __name__ == '__main__':
+    main()
